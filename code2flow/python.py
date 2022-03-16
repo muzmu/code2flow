@@ -38,22 +38,31 @@ def get_call_from_func_element(func):
         return None
 
 
-def make_calls(lines):
+def make_calls(lines,state=None,filename=None):
     """
     Given a list of lines, find all calls in this list.
 
     :param lines list[ast]:
     :rtype: list[Call]
     """
-
+    
     calls = []
     for tree in lines:
+        my_line_no = tree.lineno
         for element in ast.walk(tree):
             if type(element) != ast.Call:
                 continue
             call = get_call_from_func_element(element.func)
             if call:
+                if state and filename:
+                    try:
+                      state[filename][str(element.lineno)].append(call.token)
+                    except:
+                      state[filename][str(element.lineno)] = []
+                      state[filename][str(element.lineno)].append(call.token)
+                print("call_line: "+ str(tree.lineno)+ call.token + " " + str(element.lineno))
                 calls.append(call)
+
     return calls
 
 
@@ -141,6 +150,7 @@ def get_inherits(tree):
 
 
 class Python(BaseLanguage):
+
     @staticmethod
     def assert_dependencies():
         pass
@@ -191,7 +201,7 @@ class Python(BaseLanguage):
         return groups, nodes, body
 
     @staticmethod
-    def make_nodes(tree, parent):
+    def make_nodes(tree, parent,state=None,filename=None):
         """
         Given an ast of all the lines in a function, create the node along with the
         calls and variables internal to it.
@@ -202,7 +212,9 @@ class Python(BaseLanguage):
         """
         token = tree.name
         line_number = tree.lineno
-        calls = make_calls(tree.body)
+        print(str(token) + ":---" + str(line_number))
+        calls = make_calls(tree.body,state,filename)
+        print(calls,state)
         variables = make_local_variables(tree.body, parent)
         is_constructor = False
         if parent.group_type == GROUP_TYPE.CLASS and token in ['__init__', '__new__']:
@@ -232,7 +244,7 @@ class Python(BaseLanguage):
         return Node(token, calls, variables, line_number=line_number, parent=parent)
 
     @staticmethod
-    def make_class_group(tree, parent):
+    def make_class_group(tree, parent,state=None,filename=None):
         """
         Given an AST for the subgroup (a class), generate that subgroup.
         In this function, we will also need to generate all of the nodes internal
@@ -257,7 +269,7 @@ class Python(BaseLanguage):
                             inherits=inherits, line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
-            class_group.add_node(Python.make_nodes(node_tree, parent=class_group)[0])
+            class_group.add_node(Python.make_nodes(node_tree, parent=class_group,state=state,filename=filename)[0])
 
         for subgroup_tree in subgroup_trees:
             logging.warning("Code2flow does not support nested classes. Skipping %r in %r.",

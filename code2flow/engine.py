@@ -349,17 +349,25 @@ def make_file_group(tree, filename, extension):
     line_number = 0
     display_name = 'File'
     import_tokens = language.file_import_tokens(filename)
+    
+    print("File:" + filename)
+
 
     file_group = Group(token, group_type, display_name, import_tokens,
                        line_number, parent=None)
+    state = {}
+    state[filename] = {}
     for node_tree in node_trees:
-        for new_node in language.make_nodes(node_tree, parent=file_group):
+        for new_node in language.make_nodes(node_tree, parent=file_group,state=state,filename=filename):
             file_group.add_node(new_node)
 
     file_group.add_node(language.make_root_node(body_trees, parent=file_group), is_root=True)
 
     for subgroup_tree in subgroup_trees:
-        file_group.add_subgroup(language.make_class_group(subgroup_tree, parent=file_group))
+        file_group.add_subgroup(language.make_class_group(subgroup_tree, parent=file_group,state=state,filename=filename))
+    file = open("data.txt","a")
+    file.write(str(state)+",")
+    file.close()
     return file_group
 
 
